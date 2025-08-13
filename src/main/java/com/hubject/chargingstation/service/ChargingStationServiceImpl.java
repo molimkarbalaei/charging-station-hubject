@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 
-public class ChargingStationServiceImpl  implements ChargingStationService {
+public class ChargingStationServiceImpl implements ChargingStationService {
 
     // private final ChargingStationRepository repository;
 
@@ -42,7 +42,7 @@ public class ChargingStationServiceImpl  implements ChargingStationService {
     }
 
     // DTO to entity
-    private ChargingStation toEntity(ChargingStationRequestDto stationDto){
+    private ChargingStation toEntity(ChargingStationRequestDto stationDto) {
         return new ChargingStation(
                 null,
                 stationDto.getChargerName(),
@@ -52,6 +52,22 @@ public class ChargingStationServiceImpl  implements ChargingStationService {
     }
 
     @Override
+    public List<ChargingStationResponseDto> getChargingStations(ChargingStationRequestDto chargingStationRequestDto) {
+        log.info("Getting charging stations with request: {}", chargingStationRequestDto);
+
+        // no filter
+        if (chargingStationRequestDto.getId() == null &&
+                chargingStationRequestDto.getPower() == null &&
+                (chargingStationRequestDto.getCoordinate() == null ||
+                        (chargingStationRequestDto.getCoordinate().getLatitude() == null &&
+                                chargingStationRequestDto.getCoordinate().getLongitude() == null))) {
+            return getAllChargingStations();
+        }
+        // filter by chargingsstationsdto
+        return filterChargingStations(chargingStationRequestDto);
+    }
+
+
     public List<ChargingStationResponseDto> getAllChargingStations() {
         return fackDB.stream()
                 .map(this::responseDto)
@@ -59,12 +75,11 @@ public class ChargingStationServiceImpl  implements ChargingStationService {
 
     }
 
-    @Override
-    public List<ChargingStationResponseDto> filterChargingStations(String id, BigDecimal power, GoogleCoordinate coordinate) {
+    public List<ChargingStationResponseDto> filterChargingStations(ChargingStationRequestDto chargingStationRequestDto) {
         return fackDB.stream()
-                .filter(station -> (id == null || station.getId().equals(id)) &&
-                        (power == null || station.getPower().compareTo(power)==0) &&
-                        (coordinate == null || station.getCoordinate().equals(coordinate)))
+                .filter(station -> (chargingStationRequestDto.getId() == null || station.getId().equals(chargingStationRequestDto.getId())) &&
+                        (chargingStationRequestDto.getPower() == null || station.getPower().compareTo(chargingStationRequestDto.getPower()) == 0) &&
+                        (chargingStationRequestDto.getCoordinate() == null || station.getCoordinate().equals(chargingStationRequestDto.getCoordinate())))
                 .map(this::responseDto)
                 .collect(Collectors.toList());
 
@@ -83,7 +98,7 @@ public class ChargingStationServiceImpl  implements ChargingStationService {
     public ChargingStationResponseDto saveChargingStation(ChargingStationRequestDto chargingStationDto) {
         log.info("Saving charging station {}", chargingStationDto.getChargerName());
         // we get the input from fe and convert it to sth we can save which is entity
-        ChargingStation entity =  toEntity(chargingStationDto);
+        ChargingStation entity = toEntity(chargingStationDto);
         entity.setId(UUID.randomUUID().toString());
         // save to fackDB
         fackDB.add(entity);
