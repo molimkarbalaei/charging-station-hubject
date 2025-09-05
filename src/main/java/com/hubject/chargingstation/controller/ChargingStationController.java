@@ -30,12 +30,10 @@ public class ChargingStationController {
     @GetMapping("/{id}")
     public ResponseEntity<ChargingStationResponseDto> getChargingStationById(@PathVariable("id") String id) {
         ChargingStationResponseDto station = service.getById(id);
-//        if (station == null) {
-//            return ResponseEntity.notFound().build();
-//        }
         return ResponseEntity.ok(station);
     }
 
+    //TODO: spring only alows me to add one to the json so if I want to add more
     @PostMapping
     public ResponseEntity<ChargingStationResponseDto> create(@RequestBody @Valid ChargingStationRequestDto chargingStationDto) {
         return new ResponseEntity<>(service.saveChargingStation(chargingStationDto), HttpStatus.CREATED);
@@ -44,9 +42,6 @@ public class ChargingStationController {
     @PutMapping("/{id}")
     public ResponseEntity<ChargingStationResponseDto> update(@PathVariable("id") String id, @RequestBody @Valid ChargingStationRequestDto chargingStationDto) {
         ChargingStationResponseDto updateStation = service.updateChargingStation(id, chargingStationDto);
-//        if (updateStation == null) {
-//            return ResponseEntity.notFound().build();
-//        }
         return ResponseEntity.ok(updateStation);
     }
 
@@ -54,7 +49,6 @@ public class ChargingStationController {
     public ResponseEntity<Void> delete(@PathVariable("id") String id) {
         service.deleteChargingStation(id);
         return ResponseEntity.noContent().build();
-        // or return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }
 
