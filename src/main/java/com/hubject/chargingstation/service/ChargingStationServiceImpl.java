@@ -3,45 +3,44 @@ package com.hubject.chargingstation.service;
 import com.hubject.chargingstation.dto.ChargingStationRequestDto;
 import com.hubject.chargingstation.dto.ChargingStationResponseDto;
 import com.hubject.chargingstation.entity.ChargingStation;
-import com.hubject.chargingstation.entity.GoogleCoordinate;
 import com.hubject.chargingstation.repository.ChargingStationRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-
+@RequiredArgsConstructor
 public class ChargingStationServiceImpl implements ChargingStationService {
 
-     private final ChargingStationRepository repository;
+    private final ChargingStationRepository repository;
+    private final SpecificationResolver specificationResolver;
 
-     public ChargingStationServiceImpl(ChargingStationRepository repository) {
-         this.repository = repository;
-     }
-
+    @Transactional(readOnly = true)
     @Override
     public List<ChargingStationResponseDto> getChargingStations(ChargingStationRequestDto chargingStationRequestDto) {
         log.info("Getting charging stations with request: {}", chargingStationRequestDto);
 
         // no filter
         if (chargingStationRequestDto.getId() == null &&
+                (chargingStationRequestDto.getChargerName() == null || chargingStationRequestDto.getChargerName().isBlank()) &&
                 chargingStationRequestDto.getPower() == null &&
                 (chargingStationRequestDto.getCoordinate() == null ||
                         (chargingStationRequestDto.getCoordinate().getLatitude() == null &&
                                 chargingStationRequestDto.getCoordinate().getLongitude() == null))) {
             return getAllChargingStations();
         }
-        // filter by chargingsstationsdto
+        // filter by ChargingStationRequestDto
         return filterChargingStations(chargingStationRequestDto);
     }
 
-
+    @Transactional(readOnly = true)
     public List<ChargingStationResponseDto> getAllChargingStations() {
         return repository.findAll().stream()
                 .map(this::responseDto)
@@ -49,32 +48,45 @@ public class ChargingStationServiceImpl implements ChargingStationService {
 
     }
 
+//    public List<ChargingStationResponseDto> filterChargingStations(ChargingStationRequestDto chargingStationRequestDto) {
+//        return repository.findAll().stream()
+//                .filter(station ->
+//                        (chargingStationRequestDto.getId() == null || station.getId().equals(chargingStationRequestDto.getId())) &&
+//                        (chargingStationRequestDto.getPower() == null || station.getPower().compareTo(chargingStationRequestDto.getPower()) == 0) &&
+//                        (chargingStationRequestDto.getCoordinate() == null || station.getCoordinate().equals(chargingStationRequestDto.getCoordinate())) ||
+//                                (
+//                                        chargingStationRequestDto.getCoordinate() != null &&
+//                                        (chargingStationRequestDto.getCoordinate().getLongitude() == null || station.getCoordinate().getLongitude().compareTo(chargingStationRequestDto.getCoordinate().getLongitude()) == 0) &&
+//                                                (chargingStationRequestDto.getCoordinate().getLatitude() == null || station.getCoordinate().getLatitude().compareTo(chargingStationRequestDto.getCoordinate().getLatitude()) == 0)
+//
+//                                )
+//               )
+//                .map(this::responseDto)
+//                .collect(Collectors.toList());
+//
+//    }
+
+    //void filtering in memory and instead build a database query dynamically
+    // also we want db to filter rows and return what we filter so as in partner ms -> criteria api and predicate
+    // we can use specification or querydsl
+
+
+    @Transactional(readOnly = true) // for lazy load we use
     public List<ChargingStationResponseDto> filterChargingStations(ChargingStationRequestDto chargingStationRequestDto) {
-         // i know it is not good way to filter by findAll TODO: chnage later
-        return repository.findAll().stream()
-                .filter(station ->
-                        (chargingStationRequestDto.getId() == null || station.getId().equals(chargingStationRequestDto.getId())) &&
-                        (chargingStationRequestDto.getPower() == null || station.getPower().compareTo(chargingStationRequestDto.getPower()) == 0) &&
-                        (chargingStationRequestDto.getCoordinate() == null || station.getCoordinate().equals(chargingStationRequestDto.getCoordinate())) ||
-                                (
-                                        chargingStationRequestDto.getCoordinate() != null &&
-                                        (chargingStationRequestDto.getCoordinate().getLongitude() == null || station.getCoordinate().getLongitude().compareTo(chargingStationRequestDto.getCoordinate().getLongitude()) == 0) &&
-                                                (chargingStationRequestDto.getCoordinate().getLatitude() == null || station.getCoordinate().getLatitude().compareTo(chargingStationRequestDto.getCoordinate().getLatitude()) == 0)
-
-                                )
-               )
-                .map(this::responseDto)
-                .collect(Collectors.toList());
-
+        log.info("Filtering charging stations with request: {}", chargingStationRequestDto);
+        var specification = specificationResolver.resolveSpecification(chargingStationRequestDto);
+        var cs = repository.findAll(specification);
+        return cs.stream().map(this::responseDto).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     @Override
-    public ChargingStationResponseDto getById(String id) {
-        return repository.findById(id)
-                .map(this::responseDto)
-                .orElse(null);
+    public Optional<ChargingStationResponseDto> getById(String id) {
+        return repository.findById(id).map(this::responseDto);
+        // use optional to handel null better
     }
 
+    @Transactional
     @Override
     public ChargingStationResponseDto saveChargingStation(ChargingStationRequestDto chargingStationDto) {
         log.info("Saving charging station {}", chargingStationDto.getChargerName());
@@ -84,13 +96,14 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         return responseDto(repository.save(entity));
     }
 
+    @Transactional
     @Override
     public ChargingStationResponseDto updateChargingStation(String id, ChargingStationRequestDto chargingStationDto) {
         log.info("Updating charging station {}", chargingStationDto.getChargerName());
         // we already have the id and we have to update the entity so I have to find the id and update the data
 
-      return repository.findById(id)
-                .map(station ->{
+        return repository.findById(id)
+                .map(station -> {
                     // update the data
                     station.setChargerName(chargingStationDto.getChargerName());
                     station.setPower(chargingStationDto.getPower());
@@ -100,6 +113,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
                 .orElseThrow(() -> new RuntimeException("Charging station not found with id: " + id));
     }
 
+    @Transactional
     @Override
     public void deleteChargingStation(String id) {
         log.info("Deleting charging station {}", id);

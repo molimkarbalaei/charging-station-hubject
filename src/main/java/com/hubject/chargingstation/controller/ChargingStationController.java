@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequiredArgsConstructor
@@ -29,8 +30,7 @@ public class ChargingStationController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ChargingStationResponseDto> getChargingStationById(@PathVariable("id") String id) {
-        ChargingStationResponseDto station = service.getById(id);
-        return ResponseEntity.ok(station);
+        return service.getById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
     //TODO: spring only alows me to add one to the json so if I want to add more

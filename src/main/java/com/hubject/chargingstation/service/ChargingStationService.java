@@ -4,12 +4,13 @@ import com.hubject.chargingstation.dto.ChargingStationRequestDto;
 import com.hubject.chargingstation.dto.ChargingStationResponseDto;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ChargingStationService {
 
     List<ChargingStationResponseDto> getChargingStations(ChargingStationRequestDto chargingStationRequestDto);
 
-    ChargingStationResponseDto getById(String id);
+    Optional<ChargingStationResponseDto> getById(String id);
 
     ChargingStationResponseDto saveChargingStation(ChargingStationRequestDto chargingStationDto);
 
