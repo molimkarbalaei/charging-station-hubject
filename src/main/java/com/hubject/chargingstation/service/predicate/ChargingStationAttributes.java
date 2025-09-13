@@ -8,7 +8,5 @@ import lombok.NoArgsConstructor;
 class ChargingStationAttributes {
     static final String CHARGER_NAME = "chargerName";
     static final String POWER = "power";
-    static final String COORDINATE = "coordinate";
-    static final String LATITUDE = "latitude";
-    static final String LONGITUDE = "longitude";
+    static final String ZIPCODE = "zipcode";
 }

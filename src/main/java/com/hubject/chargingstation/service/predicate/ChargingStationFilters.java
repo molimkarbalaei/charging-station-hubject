@@ -8,11 +8,11 @@ import java.util.Set;
 // we use record so it is immutable
 @Builder(toBuilder = true)
 public record ChargingStationFilters(
-        // i added set so user can filter multiple
-        Set<String> chargerName,                  // LIKE predicate
-        Set<BigDecimal> power,                    // equal predicate
-        CoordinateFilter coordinate     // latitude, longitude -> equal predicate
-) {
-}
+        Set<String> chargerName,
+        BigDecimal power,
+        Double distanceKm,
+        String zipcode
+) { }
+
 
 

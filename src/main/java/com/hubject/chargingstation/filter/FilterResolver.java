@@ -11,13 +11,11 @@ public class FilterResolver {
 
     public static <Y, T> Specification<Y> execute(List<Filter<Y, T>> filterList, T filter) {
         return (root, query, cb) -> {
-            Predicate predicate = cb.conjunction();
-
-            filterList.stream()
+            List<Predicate> predicates = filterList.stream()
                     .map(f -> f.getPredicate(root, query, cb, filter))
                     .flatMap(Optional::stream)
-                    .forEach(p -> predicate.getExpressions().add(p));
-            return predicate;
+                    .toList();
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
         };
     }
 }

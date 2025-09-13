@@ -5,7 +5,6 @@ import com.hubject.chargingstation.entity.ChargingStation;
 import com.hubject.chargingstation.filter.Filter;
 import com.hubject.chargingstation.filter.FilterResolver;
 import com.hubject.chargingstation.service.predicate.ChargingStationFilters;
-import com.hubject.chargingstation.service.predicate.CoordinateFilter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +13,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 @RequiredArgsConstructor
@@ -23,27 +24,19 @@ public class SpecificationResolver {
 
     private final List<Filter<ChargingStation, ChargingStationFilters>> predicates;
 
-   public Specification<ChargingStation> resolveSpecification(ChargingStationRequestDto chargingStationRequestDto){
+    public Specification<ChargingStation> resolveSpecification(ChargingStationRequestDto chargingStationRequestDto){
 
-       var coordinateFilter = chargingStationRequestDto.getCoordinate() != null
-               ? CoordinateFilter.builder()
-               .latitude(chargingStationRequestDto.getCoordinate().getLatitude())
-               .longitude(chargingStationRequestDto.getCoordinate().getLongitude())
-               .build()
-               : null;
+        var filter = ChargingStationFilters.builder()
+                .zipcode(Optional.ofNullable(chargingStationRequestDto.getZipcode()).filter(s -> !s.isBlank()).orElse(null))
+                .chargerName(Optional.ofNullable(chargingStationRequestDto.getChargerName())
+                        .filter(s -> !s.isBlank())
+                        .map(name -> Set.of(name))
+                        .orElse(null))
+                .power(chargingStationRequestDto.getPower())
+                .build();
 
-       var filter = ChargingStationFilters.builder()
-               .coordinate(coordinateFilter)
-               .chargerName(chargingStationRequestDto.getChargerName() != null
-                       ? Set.of(chargingStationRequestDto.getChargerName())
-                       : null)
-               .power(chargingStationRequestDto.getPower() != null
-                       ? Set.of(chargingStationRequestDto.getPower())
-                       : null)
-               .build();
-
-         return FilterResolver.execute(predicates, filter);
-   }
+        return FilterResolver.execute(predicates, filter);
+    }
 
     @PostConstruct
     public void logPredicates() {

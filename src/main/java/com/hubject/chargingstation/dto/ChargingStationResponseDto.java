@@ -16,4 +16,5 @@ public class ChargingStationResponseDto {
     private String chargerName;
     private BigDecimal power;
     private GoogleCoordinate coordinate;
+    private String zipcode;
 }

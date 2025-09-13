@@ -11,17 +11,15 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 
 @Component
-public class CoordinatePredicate implements Filter<ChargingStation, ChargingStationFilters> {
+public class ZipCodePredicate implements Filter<ChargingStation, ChargingStationFilters> {
 
+    // where CHARGER_NAME is like %molim% or power = 50
     @Override
     public Optional<Predicate> getPredicate(Root<ChargingStation> root, CriteriaQuery<?> query, CriteriaBuilder cb, ChargingStationFilters filter) {
+        if (filter.zipcode() == null) {
+            return Optional.empty();
+        }
 
-        return Optional.ofNullable(filter.coordinate())
-                .map(coordinates -> cb.and(
-                        cb.equal(root.get(ChargingStationAttributes.COORDINATE)
-                                .get(ChargingStationAttributes.LATITUDE), coordinates.latitude()),
-                        cb.equal(root.get(ChargingStationAttributes.COORDINATE)
-                                .get(ChargingStationAttributes.LONGITUDE), coordinates.longitude())
-                ));
+        return Optional.of(cb.equal(root.get(ChargingStationAttributes.ZIPCODE), filter.zipcode()));
     }
 }

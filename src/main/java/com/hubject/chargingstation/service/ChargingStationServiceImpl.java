@@ -21,6 +21,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
 
     private final ChargingStationRepository repository;
     private final SpecificationResolver specificationResolver;
+    public final static double AVERAGE_RADIUS_OF_EARTH_KM = 6371;
 
     @Transactional(readOnly = true)
     @Override
@@ -30,7 +31,8 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         // no filter
         if (chargingStationRequestDto.getId() == null &&
                 (chargingStationRequestDto.getChargerName() == null || chargingStationRequestDto.getChargerName().isBlank()) &&
-                chargingStationRequestDto.getPower() == null &&
+                (chargingStationRequestDto.getPower() == null) &&
+                (chargingStationRequestDto.getZipcode() == null || chargingStationRequestDto.getZipcode().isBlank()) &&
                 (chargingStationRequestDto.getCoordinate() == null ||
                         (chargingStationRequestDto.getCoordinate().getLatitude() == null &&
                                 chargingStationRequestDto.getCoordinate().getLongitude() == null))) {
@@ -40,46 +42,46 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         return filterChargingStations(chargingStationRequestDto);
     }
 
-    @Transactional(readOnly = true)
     public List<ChargingStationResponseDto> getAllChargingStations() {
         return repository.findAll().stream()
                 .map(this::responseDto)
                 .collect(Collectors.toList());
-
     }
 
-//    public List<ChargingStationResponseDto> filterChargingStations(ChargingStationRequestDto chargingStationRequestDto) {
-//        return repository.findAll().stream()
-//                .filter(station ->
-//                        (chargingStationRequestDto.getId() == null || station.getId().equals(chargingStationRequestDto.getId())) &&
-//                        (chargingStationRequestDto.getPower() == null || station.getPower().compareTo(chargingStationRequestDto.getPower()) == 0) &&
-//                        (chargingStationRequestDto.getCoordinate() == null || station.getCoordinate().equals(chargingStationRequestDto.getCoordinate())) ||
-//                                (
-//                                        chargingStationRequestDto.getCoordinate() != null &&
-//                                        (chargingStationRequestDto.getCoordinate().getLongitude() == null || station.getCoordinate().getLongitude().compareTo(chargingStationRequestDto.getCoordinate().getLongitude()) == 0) &&
-//                                                (chargingStationRequestDto.getCoordinate().getLatitude() == null || station.getCoordinate().getLatitude().compareTo(chargingStationRequestDto.getCoordinate().getLatitude()) == 0)
-//
-//                                )
-//               )
-//                .map(this::responseDto)
-//                .collect(Collectors.toList());
-//
-//    }
-
-    //void filtering in memory and instead build a database query dynamically
-    // also we want db to filter rows and return what we filter so as in partner ms -> criteria api and predicate
-    // we can use specification or querydsl
-
-
-    @Transactional(readOnly = true) // for lazy load we use
+    // filter url for lang long and distance : // charging-stations?latitude=48.7&longitude=9.11&distance=10
     public List<ChargingStationResponseDto> filterChargingStations(ChargingStationRequestDto chargingStationRequestDto) {
         log.info("Filtering charging stations with request: {}", chargingStationRequestDto);
         var specification = specificationResolver.resolveSpecification(chargingStationRequestDto);
         var cs = repository.findAll(specification);
-        return cs.stream().map(this::responseDto).collect(Collectors.toList());
+
+        if (chargingStationRequestDto.getCoordinate() != null && chargingStationRequestDto.getCoordinate().getLatitude() != null && chargingStationRequestDto.getCoordinate().getLongitude() != null) {
+            double maxDistance = chargingStationRequestDto.getDistanceKm() != null
+                    ? chargingStationRequestDto.getDistanceKm()
+                    : Double.MAX_VALUE;
+            double userLat = chargingStationRequestDto.getCoordinate().getLatitude();
+            double userLon = chargingStationRequestDto.getCoordinate().getLongitude();
+
+            cs = cs.stream()
+                    .filter(station -> {
+                        if (station.getCoordinate() == null ||
+                                station.getCoordinate().getLatitude() == null ||
+                                station.getCoordinate().getLongitude() == null) {
+                            return false;
+                        }
+                        double stationDis = calculateDistance(
+                                userLat,
+                                userLon,
+                                station.getCoordinate().getLatitude(),
+                                station.getCoordinate().getLongitude()
+                        );
+                        log.info("Station {} is {} km away", station.getChargerName(), stationDis);
+                        return stationDis <= maxDistance;
+                    }).toList();
+        }
+        log.info("filtered charging stations: {}", cs);
+        return cs.stream().map(this::responseDto).toList();
     }
 
-    @Transactional(readOnly = true)
     @Override
     public Optional<ChargingStationResponseDto> getById(String id) {
         return repository.findById(id).map(this::responseDto);
@@ -108,6 +110,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
                     station.setChargerName(chargingStationDto.getChargerName());
                     station.setPower(chargingStationDto.getPower());
                     station.setCoordinate(chargingStationDto.getCoordinate());
+                    station.setZipcode(chargingStationDto.getZipcode());
                     return responseDto(station);
                 })
                 .orElseThrow(() -> new RuntimeException("Charging station not found with id: " + id));
@@ -130,6 +133,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         stationDto.setChargerName(station.getChargerName());
         stationDto.setPower(station.getPower());
         stationDto.setCoordinate(station.getCoordinate());
+        stationDto.setZipcode(station.getZipcode());
         return stationDto;
     }
 
@@ -139,7 +143,22 @@ public class ChargingStationServiceImpl implements ChargingStationService {
                 null,
                 stationDto.getChargerName(),
                 stationDto.getPower(),
-                stationDto.getCoordinate()
+                stationDto.getCoordinate(),
+                stationDto.getZipcode()
         );
     }
+
+    // harvesine formula
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return AVERAGE_RADIUS_OF_EARTH_KM * c;
+    }
+
 }

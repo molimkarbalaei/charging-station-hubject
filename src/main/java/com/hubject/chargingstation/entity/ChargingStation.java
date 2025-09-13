@@ -22,4 +22,5 @@ public class ChargingStation {
     private BigDecimal power;
     @Embedded
     private GoogleCoordinate coordinate;
+    private String zipcode;
 }
