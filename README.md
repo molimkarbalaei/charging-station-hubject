@@ -31,13 +31,15 @@ A Spring Boot 3.5 application for managing and filtering charging stations. Buil
 ## Project Structure
 com.hubject.chargingstation
 
-├── controller # REST controllers
-├── dto # Request and Response DTOs
-├── entity # JPA entities
-├── filter # Filtering predicates and logic
-├── repository # Spring Data JPA repositories
-├── service # Business logic and SpecificationResolver
-└── Test
+- controller # REST controllers
+- dto # Request and Response DTOs
+- entity # JPA entities
+- filter # Filtering predicates and logic
+- repository # Spring Data JPA repositories
+- service # Business logic and SpecificationResolver
+- Test
+
+  
 
 The application will run on http://localhost:8083.
 
